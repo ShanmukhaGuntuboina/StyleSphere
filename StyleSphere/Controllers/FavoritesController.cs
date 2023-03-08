@@ -2,16 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using StyleSphere.Models;
 
 namespace StyleSphere.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class FavoritesController : ControllerBase
+    public class FavoritesController : Controller
     {
         private readonly StyleSphereDbContext _context;
 
@@ -20,88 +18,156 @@ namespace StyleSphere.Controllers
             _context = context;
         }
 
-        // GET: api/Favorites
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Favorite>>> GetFavorites()
+        // GET: Favorites
+        public async Task<IActionResult> Index()
         {
-            return await _context.Favorites.ToListAsync();
+            var styleSphereDbContext = _context.Favorites.Include(f => f.Customer).Include(f => f.Product);
+            return View(await styleSphereDbContext.ToListAsync());
         }
 
-        // GET: api/Favorites/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Favorite>> GetFavorite(int id)
+        // GET: Favorites/Details/5
+        public async Task<IActionResult> Details(int? id)
         {
-            var favorite = await _context.Favorites.FindAsync(id);
+            if (id == null || _context.Favorites == null)
+            {
+                return NotFound();
+            }
 
+            var favorite = await _context.Favorites
+                .Include(f => f.Customer)
+                .Include(f => f.Product)
+                .FirstOrDefaultAsync(m => m.FavoritesId == id);
             if (favorite == null)
             {
                 return NotFound();
             }
 
-            return favorite;
+            return View(favorite);
         }
 
-        // PUT: api/Favorites/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutFavorite(int id, Favorite favorite)
+        // GET: Favorites/Create
+        public IActionResult Create()
+        {
+            ViewData["CustomerId"] = new SelectList(_context.Customers, "CustomerId", "CustomerId");
+            ViewData["ProductId"] = new SelectList(_context.Products, "ProductId", "ProductId");
+            return View();
+        }
+
+        // POST: Favorites/Create
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create([Bind("FavoritesId,CustomerId,ProductId,ActiveStatus")] Favorite favorite)
+        {
+            if (ModelState.IsValid)
+            {
+                _context.Add(favorite);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
+            }
+            ViewData["CustomerId"] = new SelectList(_context.Customers, "CustomerId", "CustomerId", favorite.CustomerId);
+            ViewData["ProductId"] = new SelectList(_context.Products, "ProductId", "ProductId", favorite.ProductId);
+            return View(favorite);
+        }
+
+        // GET: Favorites/Edit/5
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null || _context.Favorites == null)
+            {
+                return NotFound();
+            }
+
+            var favorite = await _context.Favorites.FindAsync(id);
+            if (favorite == null)
+            {
+                return NotFound();
+            }
+            ViewData["CustomerId"] = new SelectList(_context.Customers, "CustomerId", "CustomerId", favorite.CustomerId);
+            ViewData["ProductId"] = new SelectList(_context.Products, "ProductId", "ProductId", favorite.ProductId);
+            return View(favorite);
+        }
+
+        // POST: Favorites/Edit/5
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, [Bind("FavoritesId,CustomerId,ProductId,ActiveStatus")] Favorite favorite)
         {
             if (id != favorite.FavoritesId)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            _context.Entry(favorite).State = EntityState.Modified;
-
-            try
+            if (ModelState.IsValid)
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!FavoriteExists(id))
+                try
                 {
-                    return NotFound();
+                    _context.Update(favorite);
+                    await _context.SaveChangesAsync();
                 }
-                else
+                catch (DbUpdateConcurrencyException)
                 {
-                    throw;
+                    if (!FavoriteExists(favorite.FavoritesId))
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        throw;
+                    }
                 }
+                return RedirectToAction(nameof(Index));
             }
-
-            return NoContent();
+            ViewData["CustomerId"] = new SelectList(_context.Customers, "CustomerId", "CustomerId", favorite.CustomerId);
+            ViewData["ProductId"] = new SelectList(_context.Products, "ProductId", "ProductId", favorite.ProductId);
+            return View(favorite);
         }
 
-        // POST: api/Favorites
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<Favorite>> PostFavorite(Favorite favorite)
+        // GET: Favorites/Delete/5
+        public async Task<IActionResult> Delete(int? id)
         {
-            _context.Favorites.Add(favorite);
-            await _context.SaveChangesAsync();
+            if (id == null || _context.Favorites == null)
+            {
+                return NotFound();
+            }
 
-            return CreatedAtAction("GetFavorite", new { id = favorite.FavoritesId }, favorite);
-        }
-
-        // DELETE: api/Favorites/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteFavorite(int id)
-        {
-            var favorite = await _context.Favorites.FindAsync(id);
+            var favorite = await _context.Favorites
+                .Include(f => f.Customer)
+                .Include(f => f.Product)
+                .FirstOrDefaultAsync(m => m.FavoritesId == id);
             if (favorite == null)
             {
                 return NotFound();
             }
 
-            _context.Favorites.Remove(favorite);
-            await _context.SaveChangesAsync();
+            return View(favorite);
+        }
 
-            return NoContent();
+        // POST: Favorites/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            if (_context.Favorites == null)
+            {
+                return Problem("Entity set 'StyleSphereDbContext.Favorites'  is null.");
+            }
+            var favorite = await _context.Favorites.FindAsync(id);
+            if (favorite != null)
+            {
+                _context.Favorites.Remove(favorite);
+            }
+            
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
         }
 
         private bool FavoriteExists(int id)
         {
-            return _context.Favorites.Any(e => e.FavoritesId == id);
+          return _context.Favorites.Any(e => e.FavoritesId == id);
         }
     }
 }
